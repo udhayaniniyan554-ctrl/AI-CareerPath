@@ -98,13 +98,38 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-    addSkill: (skill_name, proficiency = 'Beginner') => apiRequest('/profile/skills', {
+    addSkill: (skill_name, proficiency_percentage = 50, category = 'Technical') => apiRequest('/skills/user', {
       method: 'POST',
-      body: JSON.stringify({ skill_name, proficiency }),
+      body: JSON.stringify({ skill_name, proficiency_percentage, category }),
     }),
-    deleteSkill: (skill_name) => apiRequest(`/profile/skills/${encodeURIComponent(skill_name)}`, {
+    deleteSkill: (skill_name) => apiRequest(`/skills/user/${encodeURIComponent(skill_name)}`, {
       method: 'DELETE',
     }),
+  },
+
+  skills: {
+    getCatalog: (search = '', category = '', limit = 60) => {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (category) params.append('category', category);
+      if (limit) params.append('limit', limit);
+      const qs = params.toString();
+      return apiRequest(`/skills/catalog${qs ? `?${qs}` : ''}`);
+    },
+    getCategories: () => apiRequest('/skills/categories'),
+    getUserSkills: () => apiRequest('/skills/user'),
+    addSkill: (skill_name, proficiency_percentage = 50, category = 'Technical') => apiRequest('/skills/user', {
+      method: 'POST',
+      body: JSON.stringify({ skill_name, proficiency_percentage, category }),
+    }),
+    updateSkill: (idOrName, proficiency_percentage) => apiRequest(`/skills/user/${encodeURIComponent(idOrName)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ proficiency_percentage: Number(proficiency_percentage) }),
+    }),
+    deleteSkill: (idOrName) => apiRequest(`/skills/user/${encodeURIComponent(idOrName)}`, {
+      method: 'DELETE',
+    }),
+    getAnalysis: () => apiRequest('/skills/analysis'),
   },
 
   dashboard: {

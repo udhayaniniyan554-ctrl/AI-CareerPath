@@ -304,4 +304,36 @@ def init_db():
         except Exception:
             pass
 
-        print("Database initialized successfully with all tables.")
+        # Migrations for student_skills table: user-specific proficiency percentage & category
+        try:
+            cursor.execute("ALTER TABLE student_skills ADD COLUMN skill_id INTEGER REFERENCES skills(id) ON DELETE SET NULL;")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE student_skills ADD COLUMN proficiency_percentage INTEGER DEFAULT 50;")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE student_skills ADD COLUMN category TEXT DEFAULT 'Technical';")
+        except Exception:
+            pass
+
+        # Backfill proficiency_percentage if 0 or null
+        cursor.execute("""
+            UPDATE student_skills 
+            SET proficiency_percentage = CASE 
+                WHEN score > 0 THEN score 
+                WHEN proficiency = 'Advanced' THEN 85
+                WHEN proficiency = 'Intermediate' THEN 65
+                ELSE 45
+            END
+            WHERE proficiency_percentage IS NULL OR proficiency_percentage = 0;
+        """)
+
+        # Performance & isolation indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_student_skills_user ON student_skills(user_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_student_skills_name ON student_skills(user_id, skill_name);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);")
+
+        print("Database initialized successfully with all tables and indexes.")

@@ -76,14 +76,19 @@ class StudentProfileResponse(BaseModel):
 # Skills
 class StudentSkillCreate(BaseModel):
     skill_name: str
-    proficiency: str = "Beginner" # 'Beginner', 'Intermediate', 'Advanced'
+    proficiency: Optional[str] = "Beginner" # 'Beginner', 'Intermediate', 'Advanced'
+    proficiency_percentage: Optional[int] = 50
+    category: Optional[str] = "Technical"
 
 class StudentSkillResponse(BaseModel):
     id: int
     user_id: int
+    skill_id: Optional[int] = None
     skill_name: str
+    proficiency_percentage: Optional[int] = 50
     proficiency: str
     score: int
+    category: Optional[str] = "Technical"
     verified: int
     source: str
     updated_at: Optional[str] = None

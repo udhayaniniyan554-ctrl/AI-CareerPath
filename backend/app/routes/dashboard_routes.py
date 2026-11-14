@@ -68,8 +68,16 @@ def get_dashboard_summary(current_user: dict = Depends(get_current_user)):
                 print(f"Roadmap auto-init error: {e}")
 
         # 3. Skills Summary
-        cursor.execute("SELECT * FROM student_skills WHERE user_id = ? ORDER BY score DESC", (user_id,))
-        skills = cursor.fetchall()
+        cursor.execute("""
+            SELECT 
+                id, user_id, skill_id, skill_name, 
+                COALESCE(proficiency_percentage, score, 50) as proficiency_percentage,
+                proficiency, score, COALESCE(category, 'Technical') as category, verified, source, updated_at
+            FROM student_skills 
+            WHERE user_id = ? 
+            ORDER BY COALESCE(proficiency_percentage, score, 50) DESC, skill_name ASC
+        """, (user_id,))
+        skills = [dict(s) for s in cursor.fetchall()]
 
         # 4. Assessment Performance
         cursor.execute("""

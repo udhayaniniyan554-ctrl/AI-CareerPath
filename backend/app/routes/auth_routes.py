@@ -111,14 +111,19 @@ def register_and_onboard(data: OnboardingRegister):
         ))
 
         # Insert user's real technical skills into student_skills table
+        initial_pct = 75 if data.experience_level == "Advanced" else (60 if data.experience_level == "Intermediate" else 45)
+        initial_prof = data.experience_level or "Beginner"
         for sk in (data.technical_skills or []):
             sk_clean = sk.strip()
             if sk_clean:
                 cursor.execute("""
-                    INSERT INTO student_skills (user_id, skill_name, proficiency, score, verified, source)
-                    VALUES (?, ?, ?, 50, 0, 'self_reported')
-                    ON CONFLICT(user_id, skill_name) DO NOTHING
-                """, (user_id, sk_clean, data.experience_level or 'Beginner'))
+                    INSERT INTO student_skills (user_id, skill_name, proficiency, score, proficiency_percentage, category, verified, source)
+                    VALUES (?, ?, ?, ?, ?, 'Technical', 0, 'self_reported')
+                    ON CONFLICT(user_id, skill_name) DO UPDATE SET
+                        proficiency = excluded.proficiency,
+                        score = excluded.score,
+                        proficiency_percentage = excluded.proficiency_percentage
+                """, (user_id, sk_clean, initial_prof, initial_pct, initial_pct))
 
         # Insert college subjects if provided
         for sub in (data.college_subjects or []):

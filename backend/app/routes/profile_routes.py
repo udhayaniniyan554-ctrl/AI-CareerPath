@@ -117,25 +117,36 @@ def add_skill(skill: StudentSkillCreate, current_user: dict = Depends(get_curren
     if not name:
         raise HTTPException(status_code=400, detail="Skill name is required.")
 
+    pct = max(0, min(100, skill.proficiency_percentage if skill.proficiency_percentage is not None else 50))
+    if pct >= 80:
+        prof = "Advanced"
+    elif pct >= 45:
+        prof = "Intermediate"
+    else:
+        prof = "Beginner"
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO student_skills (user_id, skill_name, proficiency, score, verified, source)
-            VALUES (?, ?, ?, 50, 0, 'self_reported')
+            INSERT INTO student_skills (user_id, skill_name, proficiency, score, proficiency_percentage, category, verified, source)
+            VALUES (?, ?, ?, ?, ?, ?, 0, 'self_reported')
             ON CONFLICT(user_id, skill_name) DO UPDATE SET
                 proficiency = excluded.proficiency,
+                score = excluded.score,
+                proficiency_percentage = excluded.proficiency_percentage,
+                category = COALESCE(excluded.category, student_skills.category),
                 updated_at = CURRENT_TIMESTAMP
-        """, (user_id, name, skill.proficiency))
+        """, (user_id, name, prof, pct, pct, skill.category or "Technical"))
 
         # Sync to profile technical_skills
         cursor.execute("SELECT technical_skills FROM student_profiles WHERE user_id = ?", (user_id,))
         row = cursor.fetchone()
         tech_skills = json.loads(row["technical_skills"] or "[]") if row else []
-        if name not in tech_skills:
+        if not any(s.lower() == name.lower() for s in tech_skills):
             tech_skills.append(name)
             cursor.execute("UPDATE student_profiles SET technical_skills = ? WHERE user_id = ?", (json.dumps(tech_skills), user_id))
 
-    return {"message": f"Skill '{name}' added successfully"}
+    return {"message": f"Skill '{name}' saved successfully with {pct}% proficiency"}
 
 @router.delete("/skills/{skill_name}")
 def delete_skill(skill_name: str, current_user: dict = Depends(get_current_user)):

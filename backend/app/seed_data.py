@@ -125,23 +125,93 @@ def seed_database():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, career_roles)
 
-        # 3. Insert Skills
+        # 3. Insert Skills (Industry Comprehensive Catalog)
         skills = [
-            ("JavaScript", "Frontend", "The essential programming language of the modern web ecosystem"),
-            ("TypeScript", "Frontend", "Typed superset of JavaScript providing compile-time type safety"),
+            # Programming Languages
+            ("Python", "Programming Languages", "High-level programming language renowned for clean syntax, AI/ML, and backend systems"),
+            ("Java", "Programming Languages", "Enterprise-grade object-oriented programming language running on the JVM"),
+            ("JavaScript", "Programming Languages", "The foundational language of the modern web ecosystem and browser runtimes"),
+            ("TypeScript", "Programming Languages", "Typed superset of JavaScript providing compile-time type safety and scalability"),
+            ("C", "Programming Languages", "Low-level systems programming language with direct memory control and maximum performance"),
+            ("C++", "Programming Languages", "High-performance object-oriented systems and competitive programming language"),
+            ("C#", "Programming Languages", "Modern object-oriented language for enterprise applications and .NET ecosystem"),
+            ("Go", "Programming Languages", "Concurrent, compiled language engineered by Google for cloud and microservices"),
+            ("Rust", "Programming Languages", "Memory-safe systems language with zero-cost abstractions and fearless concurrency"),
+            ("Kotlin", "Programming Languages", "Modern JVM language primarily used for Android application development"),
+            ("Swift", "Programming Languages", "Modern language designed for iOS, macOS, and Apple ecosystem applications"),
+            ("PHP", "Programming Languages", "Server-side scripting language powering web backends and CMS platforms"),
+
+            # Frontend
             ("React", "Frontend", "Declarative component-driven user interface library"),
+            ("Next.js", "Frontend", "Production-grade React framework with SSR, ISR, and API routing"),
+            ("HTML5", "Frontend", "Standard markup language structuring content on the World Wide Web"),
+            ("CSS3", "Frontend", "Style sheet language describing presentation and formatting of web documents"),
+            ("Tailwind CSS", "Frontend", "Utility-first CSS framework for rapid modern UI development"),
+            ("Vue.js", "Frontend", "Progressive, approachable framework for building interactive user interfaces"),
+            ("Angular", "Frontend", "Comprehensive enterprise TypeScript web application platform"),
+            ("Redux", "Frontend", "Predictable state container for JavaScript applications"),
+            ("Sass", "Frontend", "CSS extension language with variables, nesting, and mixins"),
+
+            # Backend & APIs
             ("Node.js", "Backend", "Asynchronous event-driven JavaScript server runtime"),
-            ("Python", "Backend", "High-level programming language renowned for clean syntax and rich libraries"),
-            ("FastAPI", "Backend", "High-performance Python web framework based on type hints"),
+            ("FastAPI", "Backend", "High-performance Python web framework based on OpenAPI and type hints"),
+            ("Django", "Backend", "Batteries-included high-level Python web framework for rapid development"),
+            ("Flask", "Backend", "Lightweight and extensible WSGI Python micro-framework"),
+            ("Express.js", "Backend", "Minimalist, fast web framework for Node.js"),
+            ("Spring Boot", "Backend", "Production-ready framework for creating standalone Java microservices"),
+            ("REST APIs", "Backend", "Architectural style for designing networked applications over HTTP"),
+            ("GraphQL", "Backend", "Query language for APIs giving clients precision data fetching"),
+            ("gRPC", "Backend", "High-performance RPC framework using HTTP/2 and Protocol Buffers"),
+            ("Microservices", "Backend", "Architectural design decomposing applications into modular independent services"),
+
+            # Databases & Storage
             ("SQL", "Database", "Standard declarative language for relational database queries"),
             ("PostgreSQL", "Database", "Advanced open-source object-relational database system"),
+            ("MySQL", "Database", "Widely deployed open-source relational database management system"),
+            ("MongoDB", "Database", "Leading document-oriented NoSQL database for flexible JSON data models"),
+            ("Redis", "Database", "In-memory data structure store used as a database, cache, and message broker"),
+            ("SQLite", "Database", "Lightweight, serverless embedded relational database engine"),
+            ("Elasticsearch", "Database", "Distributed search and analytics engine for structured and unstructured data"),
+            ("Database Design", "Database", "Relational modeling, normalization, indexing, and query optimization"),
+
+            # Cloud & DevOps
             ("Docker", "DevOps", "Standard platform for containerizing applications and microservices"),
-            ("Git", "DevOps", "Distributed version control system essential for modern engineering"),
+            ("Kubernetes", "DevOps", "Container orchestration system for automating deployment and scaling"),
+            ("AWS", "Cloud", "Amazon Web Services cloud computing infrastructure and managed services"),
+            ("Google Cloud", "Cloud", "Google Cloud Platform infrastructure, compute, and data analytics tools"),
+            ("Microsoft Azure", "Cloud", "Microsoft cloud platform for enterprise hosting, identity, and AI"),
+            ("Linux", "DevOps", "Open-source Unix-like operating system powering servers and cloud containers"),
+            ("Git", "DevOps", "Distributed version control system essential for modern engineering workflows"),
+            ("CI/CD", "DevOps", "Continuous Integration and Continuous Deployment automation pipelines"),
+            ("Terraform", "DevOps", "Infrastructure as Code tool for declaratively managing multi-cloud resources"),
+            ("Nginx", "DevOps", "High-performance HTTP server, reverse proxy, and load balancer"),
+
+            # AI & Machine Learning & Data Science
             ("PyTorch", "AI/ML", "Flexible deep learning framework widely used in research and production"),
-            ("Scikit-Learn", "AI/ML", "Core machine learning library for statistical modeling and classification"),
+            ("TensorFlow", "AI/ML", "End-to-end open-source machine learning platform by Google"),
+            ("Scikit-Learn", "AI/ML", "Core machine learning library for classification, regression, and clustering"),
+            ("Pandas", "Data Science", "Python library for high-performance data manipulation and analysis"),
+            ("NumPy", "Data Science", "Fundamental package for scientific computing with multi-dimensional arrays"),
+            ("Machine Learning", "AI/ML", "Algorithms that learn patterns from data without explicit rules"),
+            ("Deep Learning", "AI/ML", "Neural network architectures with multiple representation layers"),
+            ("Natural Language Processing", "AI/ML", "Computational techniques for analyzing and generating human language"),
+            ("Large Language Models", "AI/ML", "Transformer-based foundational models and generative AI systems"),
+            ("Vector Databases", "AI/ML", "Specialized databases for semantic similarity search and embeddings"),
+
+            # Cybersecurity
+            ("Network Security", "Security", "Protocols and practices defending networks from unauthorized access"),
+            ("OWASP Top 10", "Security", "Standard awareness document on critical web application vulnerabilities"),
+            ("Cryptography", "Security", "Mathematical techniques securing data confidentiality and integrity"),
+            ("Vulnerability Assessment", "Security", "Systematic evaluation of security weaknesses in computer systems"),
+
+            # Core Engineering & Soft Skills
+            ("Data Structures", "Engineering Foundations", "Organization, management, and storage formats for efficient data access"),
+            ("Algorithms", "Engineering Foundations", "Step-by-step computational procedures for calculations and data processing"),
+            ("Object-Oriented Programming", "Engineering Foundations", "Programming paradigm based on concepts of objects and classes"),
+            ("System Architecture", "Engineering Foundations", "High-level software design, trade-off evaluation, and scalability"),
             ("Problem Solving", "Soft Skills", "Structured analytical thinking and debugging capability"),
-            ("System Architecture", "Soft Skills", "High-level software design, trade-off evaluation, and scalability"),
-            ("Communication", "Soft Skills", "Clarity in presenting technical ideas and collaborative review")
+            ("Communication", "Soft Skills", "Clarity in presenting technical ideas and collaborative review"),
+            ("Agile Methodologies", "Soft Skills", "Iterative project management and software delivery framework")
         ]
 
         cursor.executemany("""

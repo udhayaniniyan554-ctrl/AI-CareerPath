@@ -387,6 +387,42 @@ export default function DashboardPage({ setActivePage }) {
             </div>
           )}
 
+          {/* User-Specific Skill Progress Bars */}
+          {(skills_overview || []).length > 0 && (
+            <div className="space-y-2.5 pt-3 border-t border-[#222222]">
+              <div className="flex items-center justify-between text-[11px] font-mono text-[#A1A1AA]">
+                <span>Saved Competencies ({skills_overview.length})</span>
+                <span>User Input / Assessment</span>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {skills_overview.map((s) => {
+                  const pct = s.proficiency_percentage ?? s.score ?? 50;
+                  return (
+                    <div key={s.id || s.skill_name} className="p-2.5 rounded-xl bg-[#141416] border border-[#242428] space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-white">{s.skill_name}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#101010] text-[#A1A1AA] border border-[#2B2B2B]">
+                            {s.category || 'Technical'}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-white text-xs">{pct}%</span>
+                      </div>
+                      <div className="w-full bg-[#202024] h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            pct >= 80 ? 'bg-white' : pct >= 50 ? 'bg-[#CCCCCC]' : 'bg-[#777777]'
+                          }`}
+                          style={{ width: `${Math.min(100, Math.max(4, pct))}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Missing Skills Warning */}
           {missing_skills?.length > 0 && (
             <div className="p-3 rounded-xl bg-[#151515] border border-[#262626]">

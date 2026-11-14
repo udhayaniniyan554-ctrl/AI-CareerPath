@@ -19,7 +19,8 @@ from app.routes import (
     resources_routes,
     admin_routes,
     curriculum_routes,
-    document_routes
+    document_routes,
+    skill_routes
 )
 
 app = FastAPI(
@@ -49,6 +50,7 @@ app.include_router(resources_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(curriculum_routes.router)
 app.include_router(document_routes.router)
+app.include_router(skill_routes.router)
 
 @app.on_event("startup")
 def on_startup():
