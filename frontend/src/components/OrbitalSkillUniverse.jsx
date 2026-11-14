@@ -101,6 +101,15 @@ export default function OrbitalSkillUniverse({
         const x = Math.cos(currentAngle) * radius;
         const y = Math.sin(currentAngle) * radius;
 
+        const userSkillObj = (skills || []).find(s => getSkillString(s) === itemLower);
+        const actualScore = userSkillObj ? (userSkillObj.proficiency_percentage ?? userSkillObj.score ?? 50) : null;
+        const actualProficiency = userSkillObj 
+          ? (userSkillObj.proficiency || (actualScore >= 80 ? 'Advanced' : actualScore >= 45 ? 'Intermediate' : 'Beginner')) 
+          : 'Not Demonstrated';
+        const assessmentStatus = userSkillObj 
+          ? (userSkillObj.verified ? `Verified Assessment (${actualScore}%)` : `Self-Reported (${actualScore}%)`) 
+          : 'Diagnostic / Assessment Pending';
+
         return {
           ...item,
           id: `${item.name}-${rIdx}`,
@@ -111,9 +120,10 @@ export default function OrbitalSkillUniverse({
           isDemonstrated,
           isMissing,
           isCollege,
-          proficiency: isDemonstrated ? 'Intermediate' : 'Not Demonstrated',
+          proficiency: actualProficiency,
+          score: actualScore,
           required: item.required,
-          assessment: isDemonstrated ? 'Passed (85%)' : 'Diagnostic Pending',
+          assessment: assessmentStatus,
           collegeSubject: isCollege ? 'Data Structures & DBMS' : 'Industry Add-on',
           resourceRecommendation: `Mastering ${item.name} for Production`,
         };
@@ -241,20 +251,20 @@ export default function OrbitalSkillUniverse({
           <defs>
             {/* Center Core Glow */}
             <radialGradient id="orbitCoreGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.4" />
-              <stop offset="60%" stopColor="#FFFFFF" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+              <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.45" />
+              <stop offset="45%" stopColor="#3B82F6" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#06060C" stopOpacity="0" />
             </radialGradient>
 
             {/* Linear connection line gradients */}
             <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#292929" stopOpacity="0.1" />
+              <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#1E2240" stopOpacity="0.1" />
             </linearGradient>
           </defs>
 
           {/* Central Ambient Glow */}
-          <circle cx="0" cy="0" r="120" fill="url(#orbitCoreGlow)" />
+          <circle cx="0" cy="0" r="140" fill="url(#orbitCoreGlow)" />
 
           {/* 1. Concentric Orbit Rings */}
           {orbitalRings.map((ring) => (
@@ -265,7 +275,7 @@ export default function OrbitalSkillUniverse({
                 cy="0"
                 r={ring.radius}
                 fill="none"
-                stroke="#222222"
+                stroke="#2B2D4F"
                 strokeWidth="1"
                 strokeDasharray="4 6"
               />
@@ -275,9 +285,9 @@ export default function OrbitalSkillUniverse({
                 cy="0"
                 r={ring.radius}
                 fill="none"
-                stroke="#ffffff"
+                stroke="#6366F1"
                 strokeWidth="1"
-                strokeOpacity="0.08"
+                strokeOpacity="0.18"
               />
             </g>
           ))}

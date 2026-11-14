@@ -58,9 +58,9 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center space-y-3">
-        <div className="w-9 h-9 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-mono uppercase tracking-widest text-[#A1A1AA]">
+      <div className="min-h-screen bg-[#06060C] flex flex-col items-center justify-center space-y-3 cyber-mesh-bg">
+        <div className="w-10 h-10 border-2 border-futureViolet border-t-transparent rounded-full animate-spin shadow-future-glow" />
+        <span className="text-xs font-mono uppercase tracking-widest text-futureBlue">
           Booting ORBIT AI OS...
         </span>
       </div>
@@ -70,7 +70,7 @@ export default function App() {
   const isAuthView = !!user && activePage !== 'landing';
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#F5F5F5] flex flex-col font-sans selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-[#06060C] text-[#F5F5F5] flex flex-col font-sans selection:bg-futureViolet selection:text-white cyber-mesh-bg">
       
       {/* Top Navbar */}
       <Navbar 
@@ -93,7 +93,7 @@ export default function App() {
         )}
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 overflow-x-hidden bg-[#050505]">
+        <main className="flex-1 overflow-x-hidden bg-[#06060C]">
           {activePage === 'landing' && (
             <LandingPage 
               onRegistrationSuccess={handleAuthSuccess}
@@ -104,13 +104,13 @@ export default function App() {
 
           {/* Protected Navigation Guard */}
           {!user && activePage !== 'landing' && (
-            <div className="max-w-md mx-auto my-24 p-8 rounded-2xl bg-[#101010] border border-[#27272A] text-center space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-white text-black font-extrabold flex items-center justify-center mx-auto text-sm">!</div>
+            <div className="max-w-md mx-auto my-24 p-8 rounded-2xl bg-[#0D0F22]/90 border border-futureViolet/30 text-center space-y-4 backdrop-blur-xl shadow-future-card">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-futureBlue to-futureViolet text-white font-extrabold flex items-center justify-center mx-auto text-sm shadow-future-glow">!</div>
               <h3 className="text-base font-bold text-white">Protected Platform Section</h3>
-              <p className="text-xs text-[#A1A1AA]">Please sign in with your student credentials to view your personalized roadmap and career universe.</p>
+              <p className="text-xs text-gray-400">Please sign in with your student credentials to view your personalized roadmap and career universe.</p>
               <button
                 onClick={() => handleOpenAuth('login')}
-                className="w-full py-2.5 rounded-xl bg-white text-black text-xs font-bold hover:bg-[#E0E0E0] transition-colors shadow-sm"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-futureBlue to-futureViolet text-white text-xs font-bold hover:shadow-future-glow transition-all shadow-sm"
               >
                 Sign In to Access
               </button>
