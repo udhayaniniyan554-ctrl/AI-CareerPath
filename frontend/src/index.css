@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #FFFFFF;
+    --text-primary: #111111;
+    --text-secondary: #777777;
+    --border-color: #E8E8E8;
+    --sidebar-bg: #080808;
+  }
+
+  body {
+    background-color: #FFFFFF;
+    color: #111111;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom Minimalist Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAFAFA;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D4D4D8;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A1A1AA;
+}
+
+/* Glassmorphism & Subtle Borders */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid #E8E8E8;
+}
+
+.dark-panel {
+  background: #080808;
+  border: 1px solid #222222;
+}
+
+/* Shimmer animation for AI status indicators */
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.98); }
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 3s infinite ease-in-out;
+}
+
+/* Code block formatting */
+pre code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+}
