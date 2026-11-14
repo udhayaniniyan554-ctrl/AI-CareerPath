@@ -12,6 +12,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
-# Server configuration
-HOST = os.getenv("HOST", "127.0.0.1")
+# Server configuration (0.0.0.0 binds to all network interfaces for cloud deployment e.g. Render)
+HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))

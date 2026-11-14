@@ -68,10 +68,24 @@ def health_check():
         "version": "3.0.0"
     }
 
-# Check if built frontend dist exists to serve as static files
-FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
-if FRONTEND_DIST.exists():
-    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+# Robust static frontend dist resolution for local and cloud deployment (e.g. Render)
+possible_dist_paths = [
+    Path(__file__).resolve().parent.parent.parent / "frontend" / "dist",
+    Path(__file__).resolve().parent.parent / "frontend" / "dist",
+    Path.cwd() / "frontend" / "dist",
+    Path.cwd() / "dist"
+]
+
+FRONTEND_DIST = None
+for p in possible_dist_paths:
+    if p.exists() and (p / "index.html").exists():
+        FRONTEND_DIST = p
+        break
+
+if FRONTEND_DIST:
+    print(f"[ORBIT AI] Serving compiled production frontend from: {FRONTEND_DIST}")
+    if (FRONTEND_DIST / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
@@ -79,6 +93,8 @@ if FRONTEND_DIST.exists():
         if file_path.is_file():
             return FileResponse(str(file_path))
         return FileResponse(str(FRONTEND_DIST / "index.html"))
+else:
+    print("[ORBIT AI] Notice: No compiled frontend/dist directory found yet. Run 'npm run build' inside frontend/ to bundle static UI.")
 
 if __name__ == "__main__":
     import uvicorn

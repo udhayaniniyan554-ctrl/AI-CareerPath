@@ -1,4 +1,5 @@
-const API_BASE_URL = '/api';
+// Base API URL: falls back to same-origin /api if VITE_API_BASE_URL is not explicitly configured
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const authStorage = {
   getToken: () => localStorage.getItem('ai_careerpath_token'),
