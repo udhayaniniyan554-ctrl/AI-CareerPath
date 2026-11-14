@@ -120,12 +120,17 @@ export const api = {
     getUserSkills: () => apiRequest('/skills/user'),
     addSkill: (skill_name, proficiency_percentage = 50, category = 'Technical') => apiRequest('/skills/user', {
       method: 'POST',
-      body: JSON.stringify({ skill_name, proficiency_percentage, category }),
+      body: JSON.stringify({ skill_name, proficiency_percentage: Number(proficiency_percentage), category }),
     }),
-    updateSkill: (idOrName, proficiency_percentage) => apiRequest(`/skills/user/${encodeURIComponent(idOrName)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ proficiency_percentage: Number(proficiency_percentage) }),
-    }),
+    updateSkill: (idOrName, payload) => {
+      const body = typeof payload === 'number' 
+        ? { proficiency_percentage: Number(payload) }
+        : payload;
+      return apiRequest(`/skills/user/${encodeURIComponent(idOrName)}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+    },
     deleteSkill: (idOrName) => apiRequest(`/skills/user/${encodeURIComponent(idOrName)}`, {
       method: 'DELETE',
     }),

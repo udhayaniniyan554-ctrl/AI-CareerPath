@@ -83,6 +83,10 @@ def init_db():
             score INTEGER DEFAULT 0,
             verified INTEGER DEFAULT 0, -- 1 if verified via assessment
             source TEXT DEFAULT 'self_reported', -- 'self_reported' or 'assessment'
+            skill_id INTEGER,
+            proficiency_percentage INTEGER DEFAULT 50,
+            category TEXT DEFAULT 'Technical',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
             UNIQUE(user_id, skill_name)
@@ -304,7 +308,7 @@ def init_db():
         except Exception:
             pass
 
-        # Migrations for student_skills table: user-specific proficiency percentage & category
+        # Migrations for student_skills table: user-specific proficiency percentage, category & created_at
         try:
             cursor.execute("ALTER TABLE student_skills ADD COLUMN skill_id INTEGER REFERENCES skills(id) ON DELETE SET NULL;")
         except Exception:
@@ -315,6 +319,11 @@ def init_db():
             pass
         try:
             cursor.execute("ALTER TABLE student_skills ADD COLUMN category TEXT DEFAULT 'Technical';")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE student_skills ADD COLUMN created_at TIMESTAMP;")
+            cursor.execute("UPDATE student_skills SET created_at = COALESCE(updated_at, datetime('now')) WHERE created_at IS NULL;")
         except Exception:
             pass
 

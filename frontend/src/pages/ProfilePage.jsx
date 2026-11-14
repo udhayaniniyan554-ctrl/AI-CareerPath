@@ -25,7 +25,10 @@ import {
   AlertTriangle,
   ArrowRight,
   RefreshCw,
-  Sliders
+  Sliders,
+  Clock,
+  Layers,
+  Target
 } from 'lucide-react';
 
 export default function ProfilePage({ setActivePage }) {
@@ -36,19 +39,24 @@ export default function ProfilePage({ setActivePage }) {
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
-  // New skill addition state
+  // Manual skill entry state
   const [skillInput, setSkillInput] = useState('');
-  const [skillPct, setSkillPct] = useState(70);
+  const [skillPct, setSkillPct] = useState(75);
   const [skillCategory, setSkillCategory] = useState('Technical');
   const [addingSkill, setAddingSkill] = useState(false);
 
-  // Catalog search & autocomplete
+  // Search existing skills filter
+  const [searchSkillsQuery, setSearchSkillsQuery] = useState('');
+
+  // Catalog search & autocomplete helper (optional suggestions)
   const [catalogSuggestions, setCatalogSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Inline skill editing state: { [skillId]: editedPct }
+  // Inline skill editing state (editing BOTH name and percentage)
   const [editingSkillId, setEditingSkillId] = useState(null);
+  const [editSkillName, setEditSkillName] = useState('');
   const [editPctValue, setEditPctValue] = useState(50);
+  const [editCategory, setEditCategory] = useState('Technical');
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Authentic AI Skill Analysis
@@ -90,15 +98,13 @@ export default function ProfilePage({ setActivePage }) {
     { name: "Python", category: "Programming Languages" },
     { name: "Java", category: "Programming Languages" },
     { name: "JavaScript", category: "Programming Languages" },
-    { name: "TypeScript", category: "Programming Languages" },
+    { name: "Communication", category: "Soft Skills" },
+    { name: "Problem Solving", category: "Soft Skills" },
+    { name: "React.js", category: "Frontend" },
     { name: "SQL", category: "Database" },
-    { name: "React", category: "Frontend" },
     { name: "Node.js", category: "Backend" },
     { name: "Docker", category: "DevOps" },
-    { name: "Git", category: "DevOps" },
-    { name: "C++", category: "Programming Languages" },
-    { name: "HTML5", category: "Frontend" },
-    { name: "CSS3", category: "Frontend" }
+    { name: "Git", category: "DevOps" }
   ];
 
   const fetchProfileAndSkills = async () => {
@@ -149,7 +155,7 @@ export default function ProfilePage({ setActivePage }) {
     fetchProfileAndSkills();
   }, []);
 
-  // Autocomplete skill catalog search
+  // Autocomplete skill catalog search helper
   useEffect(() => {
     if (!skillInput.trim()) {
       setCatalogSuggestions([]);
@@ -157,7 +163,7 @@ export default function ProfilePage({ setActivePage }) {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await api.skills.getCatalog(skillInput.trim(), '', 8);
+        const res = await api.skills.getCatalog(skillInput.trim(), '', 6);
         setCatalogSuggestions(res || []);
       } catch {
         setCatalogSuggestions([]);
@@ -172,20 +178,31 @@ export default function ProfilePage({ setActivePage }) {
     setShowSuggestions(false);
   };
 
+  // Add custom or catalog skill manually
   const handleAddSkill = async (e) => {
     if (e) e.preventDefault();
     const cleanName = skillInput.trim();
     if (!cleanName) return;
+
+    // Check duplicate skill for same user
+    const existing = skills.find(s => s.skill_name?.trim().toLowerCase() === cleanName.toLowerCase());
+    if (existing) {
+      setStatusMessage({
+        type: 'error',
+        text: `Duplicate Skill: '${existing.skill_name}' is already in your skills profile (currently at ${existing.proficiency_percentage ?? existing.score ?? 50}%). Edit its name or percentage below instead.`
+      });
+      return;
+    }
 
     try {
       setAddingSkill(true);
       setStatusMessage(null);
       await api.skills.addSkill(cleanName, Number(skillPct), skillCategory);
       setSkillInput('');
-      setSkillPct(70);
+      setSkillPct(75);
       setShowSuggestions(false);
       
-      // Refresh skills list & analysis
+      // Reload saved skills from backend
       const updatedSkills = await api.skills.getUserSkills();
       setSkills(updatedSkills);
       await fetchAnalysis();
@@ -203,32 +220,54 @@ export default function ProfilePage({ setActivePage }) {
 
   const handleStartEdit = (skill) => {
     setEditingSkillId(skill.id);
+    setEditSkillName(skill.skill_name);
     setEditPctValue(skill.proficiency_percentage ?? skill.score ?? 50);
+    setEditCategory(skill.category || 'Technical');
   };
 
-  const handleSaveEdit = async (skillId, skillName) => {
+  const handleSaveEdit = async (skillId, originalSkillName) => {
+    const cleanName = editSkillName.trim();
+    if (!cleanName) {
+      alert("Skill name cannot be empty.");
+      return;
+    }
+
+    // Check duplicate if renaming
+    if (cleanName.toLowerCase() !== originalSkillName.toLowerCase()) {
+      const duplicate = skills.find(s => s.id !== skillId && s.skill_name?.trim().toLowerCase() === cleanName.toLowerCase());
+      if (duplicate) {
+        alert(`A skill named '${cleanName}' already exists in your profile. Duplicate skills are not allowed.`);
+        return;
+      }
+    }
+
     try {
       setSavingEdit(true);
-      await api.skills.updateSkill(skillId, Number(editPctValue));
+      await api.skills.updateSkill(skillId, {
+        skill_name: cleanName,
+        proficiency_percentage: Number(editPctValue),
+        category: editCategory
+      });
       setEditingSkillId(null);
       
+      // Reload saved skills from backend
       const updatedSkills = await api.skills.getUserSkills();
       setSkills(updatedSkills);
       await fetchAnalysis();
 
       setStatusMessage({
         type: 'success',
-        text: `Proficiency for '${skillName}' updated to ${editPctValue}%.`
+        text: `Skill updated successfully to '${cleanName}' with ${editPctValue}% proficiency.`
       });
     } catch (err) {
-      alert("Failed to update proficiency: " + err.message);
+      setStatusMessage({ type: 'error', text: "Failed to update skill: " + err.message });
     } finally {
       setSavingEdit(false);
     }
   };
 
   const handleDeleteSkill = async (skillId, skillName) => {
-    if (!window.confirm(`Are you sure you want to remove '${skillName}' from your skill profile?`)) {
+    if (!window.confirm(`Are you sure you want to delete '${skillName}' from your skill profile?`)) {
       return;
     }
     try {
@@ -238,10 +277,10 @@ export default function ProfilePage({ setActivePage }) {
       await fetchAnalysis();
       setStatusMessage({
         type: 'success',
-        text: `Skill '${skillName}' removed.`
+        text: `Skill '${skillName}' was deleted successfully.`
       });
     } catch (err) {
-      alert("Error removing skill: " + err.message);
+      setStatusMessage({ type: 'error', text: "Error deleting skill: " + err.message });
     }
   };
 
@@ -308,8 +347,8 @@ export default function ProfilePage({ setActivePage }) {
   if (loading && !profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-3">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-mono uppercase tracking-widest text-[#A1A1AA]">
+        <div className="w-10 h-10 border-2 border-futureViolet border-t-transparent rounded-full animate-spin shadow-future-glow" />
+        <span className="text-xs font-mono uppercase tracking-widest text-futureBlue">
           Loading Your Personal Career Profile...
         </span>
       </div>
@@ -321,13 +360,23 @@ export default function ProfilePage({ setActivePage }) {
     ? Math.round(skills.reduce((acc, s) => acc + (s.proficiency_percentage ?? s.score ?? 50), 0) / skills.length)
     : 0;
 
+  // Filter skills by search query
+  const filteredSkills = skills.filter(s => {
+    if (!searchSkillsQuery.trim()) return true;
+    const q = searchSkillsQuery.trim().toLowerCase();
+    return (
+      s.skill_name.toLowerCase().includes(q) ||
+      (s.category && s.category.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fadeIn text-[#F5F5F5]">
       
       {/* Top Profile Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#292929]">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white text-black flex items-center justify-center font-black text-2xl shadow-glow shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-futureBlue to-futureViolet text-white flex items-center justify-center font-black text-2xl shadow-future-glow shrink-0">
             {user?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div>
@@ -335,132 +384,147 @@ export default function ProfilePage({ setActivePage }) {
               <h1 className="text-2xl font-extrabold text-white font-display">
                 {user?.full_name || 'Student Profile'}
               </h1>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white text-black font-bold">
+              <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-futureViolet/20 text-futureViolet border border-futureViolet/40 font-bold">
                 {user?.role || 'Student'}
               </span>
             </div>
-            <p className="text-xs font-mono text-[#A1A1AA] flex items-center gap-1.5 mt-0.5" title={user?.email}>
-              <Mail className="w-3.5 h-3.5" />
+            <p className="text-xs font-mono text-gray-400 flex items-center gap-2 mt-1" title={user?.email}>
+              <Mail className="w-3.5 h-3.5 text-futureBlue" />
               <span>{user?.email}</span>
-              <span className="text-[#555]">•</span>
-              <span className="text-white font-medium">User ID: #{user?.id}</span>
+              <span className="text-gray-600">•</span>
+              <span className="text-gray-300 font-medium">User ID: #{user?.id}</span>
             </p>
           </div>
         </div>
 
         {/* Quick KPI Badges */}
         <div className="flex items-center gap-2.5">
-          <div className="px-3.5 py-2 rounded-xl bg-[#111111] border border-[#27272A] text-right">
-            <span className="text-[10px] font-mono text-[#71717A] uppercase block">Saved Skills</span>
+          <div className="px-4 py-2 rounded-xl bg-[#0D0F22]/90 border border-white/10 text-right backdrop-blur-xl">
+            <span className="text-[10px] font-mono text-gray-400 uppercase block">Saved Skills</span>
             <span className="text-sm font-bold text-white font-mono">{skills.length} Competencies</span>
           </div>
-          <div className="px-3.5 py-2 rounded-xl bg-[#111111] border border-[#27272A] text-right">
-            <span className="text-[10px] font-mono text-[#71717A] uppercase block">Avg Proficiency</span>
-            <span className="text-sm font-bold text-white font-mono">{avgProficiency}%</span>
+          <div className="px-4 py-2 rounded-xl bg-[#0D0F22]/90 border border-white/10 text-right backdrop-blur-xl">
+            <span className="text-[10px] font-mono text-gray-400 uppercase block">Avg Proficiency</span>
+            <span className="text-sm font-bold text-futureBlue font-mono">{avgProficiency}%</span>
           </div>
           <button
             onClick={() => setActivePage('dashboard')}
-            className="px-4 py-2 rounded-xl bg-white text-black text-xs font-semibold hover:bg-[#E0E0E0] transition-colors shadow-sm"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-futureBlue to-futureViolet text-white text-xs font-bold hover:shadow-future-glow transition-all shadow-sm"
           >
             Go to Dashboard
           </button>
         </div>
       </div>
 
-      {/* Global Status Message */}
+      {/* Global Status Alert Banner */}
       {statusMessage && (
-        <div className={`p-4 rounded-xl border text-xs flex items-center gap-2.5 ${
+        <div className={`p-4 rounded-xl border text-xs flex items-center justify-between gap-3 ${
           statusMessage.type === 'success' 
-            ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200' 
-            : 'bg-red-950/40 border-red-800 text-red-200'
+            ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' 
+            : 'bg-red-950/60 border-red-500/50 text-red-200'
         }`}>
-          {statusMessage.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-          ) : (
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-          )}
-          <span>{statusMessage.text}</span>
+          <div className="flex items-center gap-2.5">
+            {statusMessage.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            )}
+            <span>{statusMessage.text}</span>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setStatusMessage(null)}
+            className="text-gray-400 hover:text-white"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION: USER-SPECIFIC TECHNICAL SKILLS MANAGEMENT (PRIMARY REQUIREMENT)  */}
+      {/* SECTION: MANUAL USER SKILLS ENTRY & MANAGEMENT (CORE REQUIREMENT)         */}
       {/* ========================================================================= */}
-      <div className="p-6 rounded-3xl border border-white/20 bg-[#0C0C0C] shadow-2xl space-y-6 relative overflow-hidden">
+      <div className="p-6 rounded-3xl border border-futureViolet/30 bg-[#0D0F22]/90 shadow-future-card space-y-6 relative overflow-hidden backdrop-blur-xl">
         
         {/* Glow accent */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-futureViolet/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Section Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#222222] gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-2">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white text-black font-black">
+              <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-futureViolet/20 text-futureViolet border border-futureViolet/40 font-black">
                 CORE SYSTEM
               </span>
-              <h2 className="text-base font-extrabold text-white tracking-tight">
-                User-Specific Technical Skills & Proficiency Engine
+              <h2 className="text-base font-extrabold text-white tracking-tight font-display">
+                My Skills – Custom Manual Skill Entry & Database Management
               </h2>
             </div>
-            <p className="text-xs text-[#A1A1AA] mt-1">
-              Every skill and percentage is saved strictly to your unique account ID. Search industry skills or add custom competencies with precise 0–100% proficiencies.
+            <p className="text-xs text-gray-400 mt-1">
+              Manually write ANY technical or soft skill with custom 0–100% proficiency. Saved directly to your isolated database profile.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={fetchProfileAndSkills}
-              className="p-2 rounded-xl bg-[#161616] border border-[#2B2B2B] text-[#A1A1AA] hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-[#141738] border border-white/10 text-gray-400 hover:text-white transition-colors"
               title="Refresh My Skills"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
-            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-white/10 border border-white/20 text-white">
-              {skills.length} Skills Configured
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-lg bg-futureViolet/20 border border-futureViolet/40 text-white">
+              {skills.length} Saved in DB
             </span>
           </div>
         </div>
 
-        {/* Add Skill Form with Autocomplete & Percentage Slider */}
-        <form onSubmit={handleAddSkill} className="p-5 rounded-2xl bg-[#121212] border border-[#27272A] space-y-4">
-          <div className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-            <Plus className="w-3.5 h-3.5 text-white" />
-            <span>Add or Update Technical Skill</span>
+        {/* 1. MANUAL SKILL ENTRY FORM */}
+        <form onSubmit={handleAddSkill} className="p-5 rounded-2xl bg-[#141738]/60 border border-white/10 space-y-4">
+          <div className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Plus className="w-4 h-4 text-futureViolet" />
+              <span>Manual Skill Entry</span>
+            </div>
+            <span className="text-[10px] font-mono text-gray-400 normal-case">
+              Enter any skill name (e.g. Python, Java, Communication, Problem Solving, React.js)
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 relative">
             
-            {/* Skill Name with Autocomplete */}
+            {/* Input: "Enter your skill" */}
             <div className="md:col-span-5 relative">
-              <label className="block text-[11px] font-mono uppercase text-[#A1A1AA] mb-1">
-                Skill Name (Search Catalog)
+              <label className="block text-[11px] font-mono uppercase text-gray-300 mb-1 font-semibold">
+                Enter your skill *
               </label>
               <div className="relative">
                 <input
                   type="text"
+                  required
                   value={skillInput}
                   onChange={(e) => {
                     setSkillInput(e.target.value);
                     setShowSuggestions(true);
                   }}
                   onFocus={() => setShowSuggestions(true)}
-                  placeholder="e.g. Python, Java, SQL, React, Docker..."
-                  className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-[#181818] border border-[#303030] text-xs text-white placeholder-[#666] focus:border-white focus:outline-none"
+                  placeholder="Enter your skill (e.g. Python, Java, Communication, React.js)"
+                  className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-[#0A0B1A] border border-white/10 text-xs text-white placeholder-gray-500 focus:border-futureViolet focus:outline-none transition-colors font-medium"
                 />
-                <Search className="w-3.5 h-3.5 text-[#71717A] absolute left-2.5 top-3" />
+                <Code2 className="w-3.5 h-3.5 text-futureBlue absolute left-2.5 top-3" />
               </div>
 
-              {/* Autocomplete Dropdown */}
+              {/* Optional Autocomplete Dropdown */}
               {showSuggestions && catalogSuggestions.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-[#1A1A1A] border border-[#333333] rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-[#0D0F22] border border-futureViolet/40 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
                   {catalogSuggestions.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => handleSelectSuggestion(item)}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-[#252525] flex items-center justify-between transition-colors border-b border-[#242424] last:border-none"
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-[#1A1D40] flex items-center justify-between transition-colors border-b border-white/5 last:border-none"
                     >
                       <span className="font-semibold text-white">{item.name}</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#101010] text-[#A1A1AA] border border-[#2E2E33]">
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#0A0B1A] text-futureViolet border border-futureViolet/30">
                         {item.category}
                       </span>
                     </button>
@@ -471,13 +535,13 @@ export default function ProfilePage({ setActivePage }) {
 
             {/* Category Selector */}
             <div className="md:col-span-3">
-              <label className="block text-[11px] font-mono uppercase text-[#A1A1AA] mb-1">
+              <label className="block text-[11px] font-mono uppercase text-gray-300 mb-1 font-semibold">
                 Category
               </label>
               <select
                 value={skillCategory}
                 onChange={(e) => setSkillCategory(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#181818] border border-[#303030] text-xs text-white focus:border-white focus:outline-none"
+                className="w-full px-3 py-2.5 rounded-xl bg-[#0A0B1A] border border-white/10 text-xs text-white focus:border-futureViolet focus:outline-none transition-colors"
               >
                 <option value="Programming Languages">Programming Languages</option>
                 <option value="Frontend">Frontend</option>
@@ -485,22 +549,22 @@ export default function ProfilePage({ setActivePage }) {
                 <option value="Database">Database</option>
                 <option value="DevOps">DevOps</option>
                 <option value="Cloud">Cloud</option>
-                <option value="AI/ML">AI / Machine Learning</option>
+                <option value="AI / Machine Learning">AI / Machine Learning</option>
                 <option value="Data Science">Data Science</option>
                 <option value="Security">Security</option>
-                <option value="Engineering Foundations">Engineering Foundations</option>
                 <option value="Soft Skills">Soft Skills</option>
+                <option value="Tools">Tools</option>
                 <option value="Technical">Technical</option>
               </select>
             </div>
 
-            {/* Proficiency Input & Level */}
+            {/* Proficiency Percentage Input (0–100) */}
             <div className="md:col-span-2">
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-mono uppercase text-[#A1A1AA]">
-                  Proficiency %
+                <label className="block text-[11px] font-mono uppercase text-gray-300 font-semibold">
+                  Proficiency (0–100) *
                 </label>
-                <span className="text-[10px] font-mono font-bold text-white">
+                <span className="text-[10px] font-mono font-bold text-futureBlue">
                   {skillPct}%
                 </span>
               </div>
@@ -508,49 +572,54 @@ export default function ProfilePage({ setActivePage }) {
                 type="number"
                 min="0"
                 max="100"
+                required
                 value={skillPct}
                 onChange={(e) => setSkillPct(Math.max(0, Math.min(100, Number(e.target.value))))}
-                className="w-full px-3 py-2 rounded-xl bg-[#181818] border border-[#303030] text-xs text-white font-mono focus:border-white focus:outline-none"
+                className="w-full px-3 py-2 rounded-xl bg-[#0A0B1A] border border-white/10 text-xs text-white font-mono focus:border-futureViolet focus:outline-none"
               />
             </div>
 
-            {/* Add Button */}
+            {/* Add Skill Button */}
             <div className="md:col-span-2 flex items-end">
               <button
                 type="submit"
                 disabled={addingSkill || !skillInput.trim()}
-                className="w-full py-2.5 rounded-xl bg-white text-black text-xs font-bold hover:bg-[#E0E0E0] transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-futureBlue to-futureViolet text-white text-xs font-bold hover:shadow-future-glow transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{addingSkill ? "Saving..." : "Save Skill"}</span>
+                <span>{addingSkill ? "Saving..." : "Add Skill"}</span>
               </button>
             </div>
 
           </div>
 
-          {/* Range Slider for Intuitive Control */}
+          {/* Interactive Range Slider */}
           <div className="pt-2 flex items-center gap-4">
-            <span className="text-[10px] font-mono text-[#71717A] w-12 shrink-0">0% (Novice)</span>
+            <span className="text-[10px] font-mono text-gray-400 w-12 shrink-0">0% (Novice)</span>
             <input
               type="range"
               min="0"
               max="100"
               value={skillPct}
               onChange={(e) => setSkillPct(Number(e.target.value))}
-              className="w-full accent-white cursor-pointer h-1.5 bg-[#252525] rounded-lg"
+              className="w-full accent-futureViolet cursor-pointer h-1.5 bg-[#1A1D36] rounded-lg"
             />
-            <span className="text-[10px] font-mono text-[#71717A] w-14 shrink-0 text-right">100% (Expert)</span>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase shrink-0 ${
-              skillPct >= 80 ? 'bg-white text-black' : skillPct >= 45 ? 'bg-[#222224] text-white border border-[#38383D]' : 'bg-[#181818] text-[#888]'
+            <span className="text-[10px] font-mono text-gray-400 w-14 shrink-0 text-right">100% (Expert)</span>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase shrink-0 ${
+              skillPct >= 80 
+                ? 'bg-futureViolet/30 text-futureViolet border border-futureViolet/50' 
+                : skillPct >= 45 
+                  ? 'bg-futureBlue/30 text-futureBlue border border-futureBlue/50' 
+                  : 'bg-gray-800 text-gray-400'
             }`}>
               {skillPct >= 80 ? 'Advanced' : skillPct >= 45 ? 'Intermediate' : 'Beginner'}
             </span>
           </div>
 
-          {/* Quick-Add Chips */}
-          <div className="pt-2 border-t border-[#1F1F23]">
-            <span className="text-[10px] font-mono uppercase text-[#71717A] block mb-1.5">
-              Popular Industry Competencies (Click to auto-fill):
+          {/* Quick Click-to-Fill Example Chips */}
+          <div className="pt-2 border-t border-white/10">
+            <span className="text-[10px] font-mono uppercase text-gray-400 block mb-1.5">
+              Quick Examples (Click to auto-fill input):
             </span>
             <div className="flex flex-wrap gap-1.5">
               {popularSkills.map((ps) => {
@@ -565,12 +634,12 @@ export default function ProfilePage({ setActivePage }) {
                     }}
                     className={`text-[10px] font-mono px-2 py-1 rounded-lg border transition-all flex items-center gap-1 ${
                       alreadyHas 
-                        ? 'border-[#222] bg-[#101010] text-[#555]' 
-                        : 'border-[#2D2D32] bg-[#161618] text-[#D4D4D8] hover:border-white hover:text-white'
+                        ? 'border-white/5 bg-[#0A0B1A] text-gray-500' 
+                        : 'border-white/10 bg-[#141738] text-gray-300 hover:border-futureViolet hover:text-white'
                     }`}
                   >
                     <span>{ps.name}</span>
-                    {alreadyHas && <Check className="w-2.5 h-2.5 text-[#555]" />}
+                    {alreadyHas && <Check className="w-2.5 h-2.5 text-emerald-400" />}
                   </button>
                 );
               })}
@@ -580,124 +649,227 @@ export default function ProfilePage({ setActivePage }) {
         </form>
 
         {/* ========================================================= */}
-        {/* DISPLAY: SAVED USER SKILLS WITH VISUAL PROGRESS BARS & EDIT */}
+        {/* 2. SEARCH & DISPLAY USER'S SAVED SKILLS IN DATABASE       */}
         {/* ========================================================= */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between pb-1">
-            <span className="text-xs font-mono font-bold uppercase text-white tracking-wider">
-              Your Active Skill Inventory ({skills.length})
-            </span>
-            <span className="text-[10px] font-mono text-[#71717A]">
-              Click pencil to edit percentage • Trash to remove
-            </span>
+        <div className="space-y-4 pt-2">
+          
+          {/* Header & Search Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold uppercase text-white tracking-wider">
+                Saved Skills Inventory ({skills.length})
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                DB Synchronized
+              </span>
+            </div>
+
+            {/* Search Input for Existing Skills */}
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                value={searchSkillsQuery}
+                onChange={(e) => setSearchSkillsQuery(e.target.value)}
+                placeholder="Search existing skills..."
+                className="w-full pl-8 pr-7 py-1.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white placeholder-gray-500 focus:border-futureViolet focus:outline-none"
+              />
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+              {searchSkillsQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchSkillsQuery('')}
+                  className="absolute right-2.5 top-2.5 text-gray-400 hover:text-white"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Empty State */}
           {skills.length === 0 ? (
-            <div className="p-8 rounded-2xl bg-[#121212] border border-dashed border-[#2C2C30] text-center space-y-2">
-              <Sliders className="w-8 h-8 text-[#555] mx-auto" />
+            <div className="p-8 rounded-2xl bg-[#141738]/40 border border-dashed border-white/10 text-center space-y-2">
+              <Sliders className="w-8 h-8 text-gray-500 mx-auto" />
               <h4 className="text-xs font-bold text-white">No skills added yet</h4>
-              <p className="text-[11px] text-[#A1A1AA] max-w-sm mx-auto">
-                Add skills with your actual proficiency percentages above to personalize your AI roadmap and orbital universe coordinates.
+              <p className="text-[11px] text-gray-400 max-w-sm mx-auto">
+                Enter your skills above with their proficiency percentages to initialize your personal career path and orbital visualization.
               </p>
             </div>
+          ) : filteredSkills.length === 0 ? (
+            <div className="p-6 rounded-2xl bg-[#141738]/30 border border-white/10 text-center text-xs text-gray-400">
+              No saved skills match "{searchSkillsQuery}". <button onClick={() => setSearchSkillsQuery('')} className="text-futureBlue underline ml-1">Clear search</button>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {skills.map((s) => {
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {filteredSkills.map((s) => {
                 const pct = s.proficiency_percentage ?? s.score ?? 50;
                 const isEditing = editingSkillId === s.id;
 
                 return (
                   <div 
                     key={s.id}
-                    className="p-4 rounded-2xl bg-[#121212] border border-[#242428] hover:border-[#383840] transition-all space-y-3"
+                    className="p-4 rounded-2xl bg-[#141738]/60 border border-white/10 hover:border-futureViolet/40 transition-all space-y-3"
                   >
-                    {/* Top Row: Name, Category, Percentage Badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="overflow-hidden">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold text-white truncate max-w-[150px]">
-                            {s.skill_name}
-                          </h4>
-                          <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-[#1C1C1F] text-[#A1A1AA] border border-[#2D2D35]">
-                            {s.category || 'Technical'}
-                          </span>
+                    {/* View Mode */}
+                    {!isEditing ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <div className="overflow-hidden">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-xs font-bold text-white truncate max-w-[160px]">
+                                {s.skill_name}
+                              </h4>
+                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-[#0A0B1A] text-futureBlue border border-futureBlue/30">
+                                {s.category || 'Technical'}
+                              </span>
+                              <span className="text-[9px] font-mono text-gray-500">#{s.id}</span>
+                            </div>
+                            <span className={`text-[10px] font-mono mt-0.5 inline-block ${
+                              s.verified ? 'text-emerald-400 font-semibold' : 'text-gray-400'
+                            }`}>
+                              {s.verified ? '✓ Verified by Assessment' : s.proficiency || 'Self-Reported'}
+                            </span>
+                          </div>
+
+                          {/* Proficiency Badge & Actions */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-xs font-mono font-black text-white px-2.5 py-0.5 rounded-lg bg-gradient-to-r from-futureBlue/30 to-futureViolet/30 border border-futureViolet/40 shadow-sm">
+                              {pct}%
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(s)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1A1D40] transition-colors"
+                              title="Edit Skill Name and Proficiency"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSkill(s.id, s.skill_name)}
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+                              title="Delete Skill"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                        <span className={`text-[10px] font-mono mt-0.5 inline-block ${
-                          s.verified ? 'text-emerald-400 font-semibold' : 'text-[#71717A]'
-                        }`}>
-                          {s.verified ? '✓ Verified by Assessment' : s.proficiency || 'Self-Reported'}
-                        </span>
-                      </div>
 
-                      {/* Percentage Badge & Action Buttons */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-xs font-mono font-black text-white px-2 py-0.5 rounded-lg bg-white/10 border border-white/20">
-                          {pct}%
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => isEditing ? setEditingSkillId(null) : handleStartEdit(s)}
-                          className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-white hover:bg-[#1E1E22] transition-colors"
-                          title="Edit Percentage"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSkill(s.id, s.skill_name)}
-                          className="p-1.5 rounded-lg text-[#71717A] hover:text-red-400 hover:bg-red-950/20 transition-colors"
-                          title="Delete Skill"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                        {/* Individual Proficiency Progress Bar */}
+                        <div className="space-y-1">
+                          <div className="w-full bg-[#1A1D36] h-2 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                pct >= 80 
+                                  ? 'bg-gradient-to-r from-futureBlue to-futureViolet shadow-future-glow' 
+                                  : pct >= 45 
+                                    ? 'bg-futureBlue' 
+                                    : 'bg-gray-500'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(4, pct))}%` }}
+                            />
+                          </div>
+                        </div>
 
-                    {/* Visual Progress Bar */}
-                    <div className="space-y-1">
-                      <div className="w-full bg-[#1F1F24] h-2 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            pct >= 80 
-                              ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.6)]' 
-                              : pct >= 50 
-                                ? 'bg-[#CCCCCC]' 
-                                : 'bg-[#777777]'
-                          }`}
-                          style={{ width: `${Math.min(100, Math.max(4, pct))}%` }}
-                        />
-                      </div>
-                    </div>
+                        {/* Record Timestamp Footer */}
+                        <div className="flex items-center justify-between text-[9px] font-mono text-gray-500 pt-1 border-t border-white/5">
+                          <span>User ID: #{s.user_id}</span>
+                          <span>Updated: {s.updated_at ? s.updated_at.split('T')[0] : 'Today'}</span>
+                        </div>
+                      </>
+                    ) : (
+                      /* Edit Mode: Edit Skill Name & Percentage */
+                      <div className="space-y-3 p-1 animate-fadeIn">
+                        <div className="text-[11px] font-mono uppercase text-futureViolet font-bold flex items-center justify-between">
+                          <span>Editing Skill #{s.id}</span>
+                          <span className="text-[10px] text-gray-400">Database Record Update</span>
+                        </div>
 
-                    {/* Inline Edit Form when Active */}
-                    {isEditing && (
-                      <div className="pt-2 border-t border-[#222228] flex items-center gap-2 animate-fadeIn">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={editPctValue}
-                          onChange={(e) => setEditPctValue(Number(e.target.value))}
-                          className="flex-1 accent-white h-1.5 bg-[#252528] rounded cursor-pointer"
-                        />
-                        <span className="text-xs font-mono font-bold text-white w-9 text-right">
-                          {editPctValue}%
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveEdit(s.id, s.skill_name)}
-                          disabled={savingEdit}
-                          className="px-2.5 py-1 rounded-lg bg-white text-black font-bold text-[10px] hover:bg-[#DDD] transition-colors"
-                        >
-                          {savingEdit ? "..." : "Save"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingSkillId(null)}
-                          className="px-2 py-1 rounded-lg border border-[#333] text-[#A1A1AA] text-[10px] hover:text-white"
-                        >
-                          Cancel
-                        </button>
+                        {/* Edit Skill Name Input */}
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-gray-300 mb-1">
+                            Edit Skill Name
+                          </label>
+                          <input
+                            type="text"
+                            value={editSkillName}
+                            onChange={(e) => setEditSkillName(e.target.value)}
+                            placeholder="Skill name"
+                            className="w-full px-3 py-1.5 rounded-xl bg-[#0A0B1A] border border-futureViolet/40 text-xs text-white focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Edit Category */}
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-gray-300 mb-1">
+                            Edit Category
+                          </label>
+                          <select
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-xl bg-[#0A0B1A] border border-white/10 text-xs text-white focus:outline-none"
+                          >
+                            <option value="Programming Languages">Programming Languages</option>
+                            <option value="Frontend">Frontend</option>
+                            <option value="Backend">Backend</option>
+                            <option value="Database">Database</option>
+                            <option value="DevOps">DevOps</option>
+                            <option value="Cloud">Cloud</option>
+                            <option value="AI / Machine Learning">AI / Machine Learning</option>
+                            <option value="Soft Skills">Soft Skills</option>
+                            <option value="Technical">Technical</option>
+                          </select>
+                        </div>
+
+                        {/* Edit Percentage Slider & Number */}
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-mono uppercase text-gray-300">
+                              Edit Proficiency Percentage
+                            </label>
+                            <span className="text-xs font-mono font-bold text-futureBlue">
+                              {editPctValue}%
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={editPctValue}
+                              onChange={(e) => setEditPctValue(Number(e.target.value))}
+                              className="flex-1 accent-futureViolet h-1.5 bg-[#1A1D36] rounded cursor-pointer"
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={editPctValue}
+                              onChange={(e) => setEditPctValue(Math.max(0, Math.min(100, Number(e.target.value))))}
+                              className="w-16 px-2 py-1 rounded-lg bg-[#0A0B1A] border border-white/10 text-xs text-white font-mono text-center"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Save Changes and Cancel Buttons */}
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => setEditingSkillId(null)}
+                            className="px-3 py-1.5 rounded-xl border border-white/10 text-gray-400 text-xs hover:text-white transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEdit(s.id, s.skill_name)}
+                            disabled={savingEdit || !editSkillName.trim()}
+                            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-futureBlue to-futureViolet text-white font-bold text-xs hover:shadow-future-glow transition-all flex items-center gap-1.5"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>{savingEdit ? "Updating DB..." : "Save Changes"}</span>
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -709,104 +881,75 @@ export default function ProfilePage({ setActivePage }) {
         </div>
 
         {/* ========================================================= */}
-        {/* AUTHENTIC AI CAREER ANALYSIS CONNECTED TO ACTUAL SAVED SKILLS */}
+        {/* AUTHENTIC AI CAREER ANALYSIS CONNECTED TO SAVED SKILLS    */}
         {/* ========================================================= */}
         {analysis && (
-          <div className="mt-6 p-5 rounded-2xl bg-[#111114] border border-[#292930] space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-[#222226]">
+          <div className="mt-6 p-5 rounded-2xl bg-[#141738]/50 border border-white/10 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-white" />
+                <Sparkles className="w-4 h-4 text-futureViolet animate-pulse" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-                  Live AI Competency Breakdown for {analysis.target_career}
+                  Live Telemetry Breakdown for {analysis.target_career}
                 </h3>
               </div>
-              <span className="text-xs font-mono text-white font-semibold">
-                {analysis.readiness_score}% Target Alignment
+              <span className="text-xs font-mono text-futureBlue font-semibold">
+                {analysis.career_readiness_percentage ?? analysis.readiness_score ?? 0}% Alignment
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               
-              {/* Strong Skills */}
-              <div className="p-3.5 rounded-xl bg-[#151518] border border-[#24242A] space-y-2">
+              {/* Matched Skills */}
+              <div className="p-3.5 rounded-xl bg-[#0D0F22]/90 border border-emerald-500/30 space-y-2">
                 <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold block">
-                  ✓ Strong Skills (70%+)
+                  ✓ Matched Competencies ({analysis.matched_skills_count ?? 0})
                 </span>
                 <div className="space-y-1">
-                  {analysis.strong_skills?.length > 0 ? (
-                    analysis.strong_skills.map((s, idx) => (
+                  {(analysis.matched_skills || []).length > 0 ? (
+                    analysis.matched_skills.slice(0, 4).map((s, idx) => (
                       <div key={idx} className="flex items-center justify-between text-xs">
                         <span className="text-white font-medium">{s.skill_name}</span>
-                        <span className="text-[10px] font-mono font-bold text-white">{s.proficiency_percentage}%</span>
+                        <span className="text-[10px] font-mono font-bold text-emerald-400">{s.score}%</span>
                       </div>
                     ))
                   ) : (
-                    <span className="text-[11px] text-[#71717A]">No 70%+ skills yet</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Needs Improvement */}
-              <div className="p-3.5 rounded-xl bg-[#151518] border border-[#24242A] space-y-2">
-                <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" /> Needs Improvement (&lt;60%)
-                </span>
-                <div className="space-y-1">
-                  {analysis.needs_improvement?.length > 0 ? (
-                    analysis.needs_improvement.map((s, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs">
-                        <span className="text-white font-medium">{s.skill_name}</span>
-                        <span className="text-[10px] font-mono font-bold text-amber-300">{s.proficiency_percentage}%</span>
-                      </div>
-                    ))
-                  ) : (
-                    <span className="text-[11px] text-[#71717A]">All skills above 60%</span>
+                    <span className="text-[11px] text-gray-500">No matching skills yet</span>
                   )}
                 </div>
               </div>
 
               {/* Missing Core Skills */}
-              <div className="p-3.5 rounded-xl bg-[#151518] border border-[#24242A] space-y-2">
-                <span className="text-[10px] font-mono uppercase text-red-400 font-bold block flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Missing for {analysis.target_career}
+              <div className="p-3.5 rounded-xl bg-[#0D0F22]/90 border border-futureViolet/30 space-y-2">
+                <span className="text-[10px] font-mono uppercase text-futureViolet font-bold block flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 text-futureViolet" /> Missing ({analysis.missing_skills_count ?? 0})
                 </span>
                 <div className="flex flex-wrap gap-1">
-                  {analysis.missing_skills?.length > 0 ? (
-                    analysis.missing_skills.slice(0, 4).map((sk, idx) => (
-                      <span key={idx} className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#101010] text-red-200 border border-red-900/40">
+                  {(analysis.missing_skills || []).length > 0 ? (
+                    analysis.missing_skills.slice(0, 5).map((sk, idx) => (
+                      <span key={idx} className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#0A0B1A] text-futureViolet border border-futureViolet/40">
                         + {sk}
                       </span>
                     ))
                   ) : (
-                    <span className="text-[11px] text-emerald-400">All core competencies covered!</span>
+                    <span className="text-[11px] text-emerald-400">All target skills registered!</span>
                   )}
                 </div>
               </div>
 
-            </div>
-
-            {/* Recommended Project to Bridge Gap */}
-            {analysis.recommended_projects?.length > 0 && (
-              <div className="p-3.5 rounded-xl bg-[#141418] border border-[#282830] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-mono uppercase text-[#A1A1AA] font-bold block">
-                    Recommended Milestone Project:
-                  </span>
-                  <h4 className="text-xs font-bold text-white">
-                    {analysis.recommended_projects[0].title}
-                  </h4>
-                  <p className="text-[11px] text-[#A1A1AA] max-w-xl">
-                    {analysis.recommended_projects[0].description}
-                  </p>
+              {/* All Saved Competencies */}
+              <div className="p-3.5 rounded-xl bg-[#0D0F22]/90 border border-white/10 space-y-2">
+                <span className="text-[10px] font-mono uppercase text-gray-300 font-bold block">
+                  Total Saved Profile Skills
+                </span>
+                <div className="text-2xl font-black text-white font-mono">
+                  {skills.length}
                 </div>
-                <button
-                  onClick={() => setActivePage('roadmap')}
-                  className="px-3.5 py-1.5 rounded-xl bg-white text-black text-xs font-bold hover:bg-[#E0E0E0] transition-colors shrink-0"
-                >
-                  View in Roadmap
-                </button>
+                <span className="text-[10px] text-gray-400 block">
+                  Average competency: {avgProficiency}%
+                </span>
               </div>
-            )}
+
+            </div>
 
           </div>
         )}
@@ -819,9 +962,9 @@ export default function ProfilePage({ setActivePage }) {
       <form onSubmit={handleSaveProfile} className="space-y-6">
         
         {/* Target Career & Education Track */}
-        <div className="p-6 rounded-2xl border border-[#262626] bg-[#101010] shadow-subtle space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-[#222222]">
-            <Briefcase className="w-4 h-4 text-white" />
+        <div className="p-6 rounded-2xl border border-white/10 bg-[#0D0F22]/80 shadow-future-card space-y-4 backdrop-blur-xl">
+          <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+            <Briefcase className="w-4 h-4 text-futureBlue" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
               Target Career Track & Academic Credentials
             </h2>
@@ -829,31 +972,31 @@ export default function ProfilePage({ setActivePage }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#D4D4D8] mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1">
                 Target Career Track
               </label>
               <select
                 value={targetCareer}
                 onChange={(e) => setTargetCareer(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white focus:border-white focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white focus:border-futureViolet focus:outline-none"
               >
                 {availableRoles.map(role => (
                   <option key={role} value={role}>{role}</option>
                 ))}
               </select>
-              <span className="text-[10px] text-[#71717A] mt-1 block">
+              <span className="text-[10px] text-gray-500 mt-1 block">
                 Changing target recalculates skill gaps across 6 AI agents.
               </span>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#D4D4D8] mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1">
                 Self-Reported Experience Level
               </label>
               <select
                 value={experienceLevel}
                 onChange={(e) => setExperienceLevel(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white focus:border-white focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white focus:border-futureViolet focus:outline-none"
               >
                 <option value="Beginner">Beginner (Foundations & Concepts)</option>
                 <option value="Intermediate">Intermediate (Project Implementation)</option>
@@ -862,20 +1005,20 @@ export default function ProfilePage({ setActivePage }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#D4D4D8] mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1">
                 College / University
               </label>
               <input
                 type="text"
                 value={college}
                 onChange={(e) => setCollege(e.target.value)}
-                placeholder="e.g. Apex Institute of Technology"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white focus:border-white focus:outline-none"
+                placeholder="Enter your college or university"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white placeholder-gray-500 focus:border-futureViolet focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#D4D4D8] mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1">
                 Department / Major
               </label>
               <input
@@ -883,18 +1026,18 @@ export default function ProfilePage({ setActivePage }) {
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 placeholder="e.g. Computer Science & Engineering"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white focus:border-white focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white placeholder-gray-500 focus:border-futureViolet focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#D4D4D8] mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1">
                 Academic Year
               </label>
               <select
                 value={currentYear}
                 onChange={(e) => setCurrentYear(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white focus:border-white focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white focus:border-futureViolet focus:outline-none"
               >
                 <option value="1st Year">1st Year</option>
                 <option value="2nd Year">2nd Year</option>
@@ -905,25 +1048,25 @@ export default function ProfilePage({ setActivePage }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#D4D4D8] mb-1">
+              <label className="block text-xs font-semibold text-gray-300 mb-1">
                 Degree / Qualification
               </label>
               <input
                 type="text"
                 value={education}
                 onChange={(e) => setEducation(e.target.value)}
-                placeholder="e.g. B.Tech Computer Science"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white focus:border-white focus:outline-none"
+                placeholder="e.g. Bachelor of Technology (B.Tech)"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white placeholder-gray-500 focus:border-futureViolet focus:outline-none"
               />
             </div>
           </div>
         </div>
 
         {/* Resume & Syllabus Document Parser */}
-        <div className="p-6 rounded-2xl border border-[#262626] bg-[#101010] shadow-subtle space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-[#222222]">
+        <div className="p-6 rounded-2xl border border-white/10 bg-[#0D0F22]/80 shadow-future-card space-y-4 backdrop-blur-xl">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-white" />
+              <Sparkles className="w-4 h-4 text-futureViolet" />
               <h2 className="text-sm font-bold uppercase tracking-wider text-white">
                 AI Skill Extraction (Resume & Syllabus)
               </h2>
@@ -933,7 +1076,7 @@ export default function ProfilePage({ setActivePage }) {
                 type="button"
                 onClick={() => setDocType('resume')}
                 className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                  docType === 'resume' ? 'bg-white text-black font-semibold' : 'text-[#A1A1AA] hover:text-white'
+                  docType === 'resume' ? 'bg-gradient-to-r from-futureBlue to-futureViolet text-white font-semibold' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 Resume
@@ -942,7 +1085,7 @@ export default function ProfilePage({ setActivePage }) {
                 type="button"
                 onClick={() => setDocType('syllabus')}
                 className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                  docType === 'syllabus' ? 'bg-white text-black font-semibold' : 'text-[#A1A1AA] hover:text-white'
+                  docType === 'syllabus' ? 'bg-gradient-to-r from-futureBlue to-futureViolet text-white font-semibold' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 College Syllabus
@@ -950,12 +1093,12 @@ export default function ProfilePage({ setActivePage }) {
             </div>
           </div>
 
-          <p className="text-xs text-[#A1A1AA] leading-relaxed">
-            Upload or paste your resume or syllabus text. The AI Document Parser extracts verified technical competencies directly into your profile.
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Upload or paste your resume or syllabus text. The AI Document Parser extracts technical competencies directly into your profile.
           </p>
 
           {docSuccess && (
-            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800 text-emerald-200 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{docSuccess}</span>
             </div>
@@ -967,13 +1110,13 @@ export default function ProfilePage({ setActivePage }) {
               value={docText}
               onChange={(e) => setDocText(e.target.value)}
               placeholder={`Paste your ${docType} contents here (e.g. project descriptions, coursework, syllabus modules)...`}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white placeholder-[#555] font-mono focus:border-white focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white placeholder-gray-500 font-mono focus:border-futureViolet focus:outline-none"
             />
             <button
               type="button"
               onClick={handleParseDocument}
               disabled={parsingDoc || !docText.trim()}
-              className="px-4 py-2 rounded-xl bg-white text-black text-xs font-semibold hover:bg-[#E0E0E0] transition-colors disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-futureBlue to-futureViolet text-white text-xs font-bold hover:shadow-future-glow transition-all disabled:opacity-50"
             >
               {parsingDoc ? 'Extracting Skills with AI...' : `Parse & Import ${docType === 'resume' ? 'Resume' : 'Syllabus'}`}
             </button>
@@ -981,9 +1124,9 @@ export default function ProfilePage({ setActivePage }) {
         </div>
 
         {/* Portfolio, Certifications & Bio */}
-        <div className="p-6 rounded-2xl border border-[#262626] bg-[#101010] shadow-subtle space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-[#222222]">
-            <FolderGit2 className="w-4 h-4 text-white" />
+        <div className="p-6 rounded-2xl border border-white/10 bg-[#0D0F22]/80 shadow-future-card space-y-4 backdrop-blur-xl">
+          <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+            <FolderGit2 className="w-4 h-4 text-futureBlue" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
               Portfolio Projects, Certifications & Bio
             </h2>
@@ -991,7 +1134,7 @@ export default function ProfilePage({ setActivePage }) {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+              <label className="block text-xs font-medium text-gray-300 mb-1">
                 Notable Projects (One per line)
               </label>
               <textarea
@@ -999,12 +1142,12 @@ export default function ProfilePage({ setActivePage }) {
                 value={projectsText}
                 onChange={(e) => setProjectsText(e.target.value)}
                 placeholder="E-Commerce API built with FastAPI & PostgreSQL&#10;Full-stack Realtime Chat App using React & WebSockets"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white font-mono focus:border-white focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white font-mono focus:border-futureViolet focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+              <label className="block text-xs font-medium text-gray-300 mb-1">
                 Certifications & Courses (One per line)
               </label>
               <textarea
@@ -1012,12 +1155,12 @@ export default function ProfilePage({ setActivePage }) {
                 value={certificationsText}
                 onChange={(e) => setCertificationsText(e.target.value)}
                 placeholder="AWS Certified Cloud Practitioner&#10;Meta React Specialization"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white font-mono focus:border-white focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white font-mono focus:border-futureViolet focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+              <label className="block text-xs font-medium text-gray-300 mb-1">
                 Professional Bio & Career Aspirations
               </label>
               <textarea
@@ -1025,7 +1168,7 @@ export default function ProfilePage({ setActivePage }) {
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Brief summary of your learning journey and career ambitions..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141414] border border-[#292929] text-xs text-white focus:border-white focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141738] border border-white/10 text-xs text-white focus:border-futureViolet focus:outline-none"
               />
             </div>
           </div>
@@ -1036,9 +1179,9 @@ export default function ProfilePage({ setActivePage }) {
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-3 rounded-xl bg-white text-black text-xs font-bold hover:bg-[#E0E0E0] transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-futureBlue to-futureViolet text-white text-xs font-bold hover:shadow-future-glow transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
           >
-            <Save className="w-4 h-4 text-black" />
+            <Save className="w-4 h-4 text-white" />
             <span>{saving ? 'Saving Profile Details...' : 'Save Academic & Career Profile'}</span>
           </button>
         </div>
